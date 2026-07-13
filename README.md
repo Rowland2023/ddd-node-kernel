@@ -1,33 +1,36 @@
-# Production-Grade DDD Building Blocks for Node.js
+# ddd-node-kernel
 
-Zero-boilerplate foundation for building scalable, maintainable Domain-Driven Design applications in Node.js/TypeScript.
+Production-grade Domain-Driven Design building blocks for Node.js.
 
-Built for production: includes outbox pattern, optimistic locking, and first-class observability.
+Battle-tested patterns for transaction boundaries, event sourcing, and observability in high-throughput services. Zero dependencies on specific ORMs or frameworks.
 
-### **What’s Inside**
+## **Why this exists**
 
-| Module | Purpose | Why It Matters |
+Most DDD examples stop at entities and value objects. This kernel handles the hard parts: concurrency, outbox, and tracing across async boundaries. Drop it into any Node.js service and focus on business logic.
+
+## **Core Components**
+
+| Component | Responsibility | Key Features |
 | --- | --- | --- |
-| **AggregateRoot** | Base class for domain aggregates with event tracking | Enforces invariants + generates domain events |
-| **DomainEvent** | Versioned, traceable event objects | Safe evolution, distributed tracing |
-| **ValueObject** | Immutable value equality with deep freeze | Prevents accidental mutation bugs |
-| **Specification** | Composable business rules + DB query translation | Reuse rules across domain + infrastructure |
-| **IRepository** | Aggregate-only persistence port | No anemic models, enforces transaction scope |
-| **UnitOfWork** | Transaction boundary + outbox integration | Atomic writes + guaranteed event delivery |
-| **EventBus** | At-least-once async event publishing | Decouples domains without data loss |
-| **ILogger** | Structured logging port with `child()` context | CorrelationId on every line |
-| **Observability Decorator** | Wraps use cases with logging/metrics/tracing | Zero duplication, 100% coverage |
+| **`IRepository`** | Aggregate persistence port | `save()`, `getById()`, `findByIdForUpdate()` with optimistic locking contract |
+| **`UnitOfWork`** | Transaction boundary + outbox | Atomic commit of domain changes + events. Prevents dual-write failures |
+| **`EventBus`** | Domain event publishing | `publishBatch()` for outbox pattern. At-least-once delivery semantics |
+| **`TransactionManager`** | DB transaction abstraction | Vendor-agnostic `execute()` for wrapping UoW. Works with Postgres, MySQL |
+| **`TelemetryUseCaseDecorator`** | Cross-cutting observability | Auto-injects logging, metrics, tracing via AsyncLocalStorage. Zero boilerplate |
+| **`AggregateRoot`** | Domain event collection | `pullDomainEvents()`, optimistic `version` field |
+| **`Specification`** | Composable business rules | `isSatisfiedBy()`, `and()`, `or()`, `not()`. Translatable to SQL |
+| **`ILogger`** | Structured logging port | `child()` for request context. Pino/Winston adapters included |
 
-### **Production Features**
+## **Production Features**
 
-1. **Transactional Outbox**: Events are saved in the same DB transaction as aggregate changes. Background publisher guarantees delivery to Kafka/RabbitMQ. No dual-write failures.
-2. **Optimistic Locking**: `version` field on aggregates prevents lost updates in multi-instance deployments. `save()` throws on version mismatch.
-3. **Observability Built-In**: `TelemetryUseCaseDecorator` automatically adds structured logs, duration metrics, and trace spans to every use case. Uses `AsyncLocalStorage` so correlationId flows without manual passing.
-4. **Dependency Inversion**: All infra depends on domain ports. Swap Pino → Winston, Postgres → Mongo, Datadog → Prometheus with zero business code changes.
-5. **Battle-Tested Patterns**: Handles idempotency, race conditions, graceful shutdown, and DLQ routing out of the box.
+1. **Outbox Pattern**: Domain events written to DB in same transaction as state change. Background publisher ensures eventual delivery to Kafka/RabbitMQ. No lost events on crash.
+2. **Optimistic Locking**: `aggregate.version` checked on save. Prevents lost updates under concurrency. Throws `OptimisticLockError` for retry.
+3. **Handless Observability**: `AsyncLocalStorage` middleware propagates `correlationId` + `logger` automatically. Every log/metrics/trace correlated without passing params.
+4. **Framework Agnostic**: No Express/Fastify/NestJS imports. Use with any HTTP layer. Ports/adapters only.
+5. **Test Friendly**: All infra mocked via ports. Unit test domain logic in milliseconds.
 
-### **Quick Start**
+## **Quick Start**
 
+### **1. Install**
 ```bash
-npm install
-npm test # 100% coverage on domain kernel
+npm install ddd-node-kernel
