@@ -2,35 +2,291 @@
 
 Production-grade Domain-Driven Design building blocks for Node.js.
 
-Battle-tested patterns for transaction boundaries, event sourcing, and observability in high-throughput services. Zero dependencies on specific ORMs or frameworks.
+A framework-agnostic shared kernel providing the core abstractions needed to build modular, event-driven applications using Domain-Driven Design (DDD) and Clean Architecture.
 
-## **Why this exists**
+Designed for production systems where correctness, maintainability, and explicit business modeling are more important than framework-specific conventions.
 
-Most DDD examples stop at entities and value objects. This kernel handles the hard parts: concurrency, outbox, and tracing across async boundaries. Drop it into any Node.js service and focus on business logic.
+---
 
-## **Core Components**
+## Why this exists
 
-| Component | Responsibility | Key Features |
-| --- | --- | --- |
-| **`IRepository`** | Aggregate persistence port | `save()`, `getById()`, `findByIdForUpdate()` with optimistic locking contract |
-| **`UnitOfWork`** | Transaction boundary + outbox | Atomic commit of domain changes + events. Prevents dual-write failures |
-| **`EventBus`** | Domain event publishing | `publishBatch()` for outbox pattern. At-least-once delivery semantics |
-| **`TransactionManager`** | DB transaction abstraction | Vendor-agnostic `execute()` for wrapping UoW. Works with Postgres, MySQL |
-| **`TelemetryUseCaseDecorator`** | Cross-cutting observability | Auto-injects logging, metrics, tracing via AsyncLocalStorage. Zero boilerplate |
-| **`AggregateRoot`** | Domain event collection | `pullDomainEvents()`, optimistic `version` field |
-| **`Specification`** | Composable business rules | `isSatisfiedBy()`, `and()`, `or()`, `not()`. Translatable to SQL |
-| **`ILogger`** | Structured logging port | `child()` for request context. Pino/Winston adapters included |
+Most DDD examples stop at Entities and Value Objects.
 
-## **Production Features**
+Production systems also need:
 
-1. **Outbox Pattern**: Domain events written to DB in same transaction as state change. Background publisher ensures eventual delivery to Kafka/RabbitMQ. No lost events on crash.
-2. **Optimistic Locking**: `aggregate.version` checked on save. Prevents lost updates under concurrency. Throws `OptimisticLockError` for retry.
-3. **Handless Observability**: `AsyncLocalStorage` middleware propagates `correlationId` + `logger` automatically. Every log/metrics/trace correlated without passing params.
-4. **Framework Agnostic**: No Express/Fastify/NestJS imports. Use with any HTTP layer. Ports/adapters only.
-5. **Test Friendly**: All infra mocked via ports. Unit test domain logic in milliseconds.
+- Aggregate roots
+- Immutable domain events
+- Optimistic concurrency
+- Repository contracts
+- Transaction boundaries
+- Transactional Outbox
+- Event publishing
+- Specifications
+- Telemetry integration
 
-## **Quick Start**
+This library provides those reusable building blocks while remaining independent of Express, NestJS, Prisma, Sequelize, TypeORM, or any specific persistence technology.
 
-### **1. Install**
-```bash
-npm install ddd-node-kernel
+---
+
+## Features
+
+- Aggregate Roots
+- Entities
+- Value Objects
+- Domain Events
+- Repository Interfaces
+- Unit of Work
+- Event Bus
+- Transaction Manager
+- Specifications
+- Optimistic Locking
+- Transactional Outbox Support
+- Framework Agnostic
+- Infrastructure Agnostic
+- Fully Testable
+
+---
+
+## Architecture
+
+```
+                Application Layer
+
+                     Use Cases
+                         │
+                         ▼
+                Aggregate Root
+                         │
+         ┌───────────────┴───────────────┐
+         │                               │
+      Entities                     Value Objects
+         │
+         ▼
+    Domain Events
+         │
+         ▼
+      Unit of Work
+         │
+         ▼
+ Repository + Outbox
+         │
+         ▼
+ Event Publisher (Kafka/RabbitMQ/etc.)
+```
+
+---
+
+## Core Components
+
+### AggregateRoot
+
+Provides:
+
+- identity
+- optimistic versioning
+- domain event recording
+- event collection
+
+```javascript
+payment.recordEvent(
+    new PaymentCreatedEvent(...)
+);
+
+const events = payment.pullEvents();
+```
+
+---
+
+### Entity
+
+Provides:
+
+- identity equality
+- version tracking
+- event recording
+- immutable identifiers
+
+---
+
+### ValueObject
+
+Immutable value semantics.
+
+Examples:
+
+- Money
+- Email
+- Currency
+- Address
+
+---
+
+### DomainEvent
+
+Immutable event envelope supporting:
+
+- event name
+- aggregate id
+- event version
+- occurredAt
+- correlationId
+- causationId
+- immutable payload
+
+Example:
+
+```javascript
+new PaymentReleasedEvent({
+    paymentId,
+    correlationId,
+    occurredAt
+});
+```
+
+---
+
+### Repository
+
+Persistence contract.
+
+```javascript
+await repository.save(aggregate);
+
+const payment =
+    await repository.findById(id);
+```
+
+---
+
+### UnitOfWork
+
+Coordinates atomic commits.
+
+```javascript
+await unitOfWork.execute(async () => {
+
+    await repository.save(payment);
+
+    await outbox.store(
+        payment.pullEvents()
+    );
+
+});
+```
+
+---
+
+### EventBus
+
+Publishes domain events after persistence.
+
+Supports:
+
+- Kafka
+- RabbitMQ
+- Redis Streams
+- SNS/SQS
+- Custom adapters
+
+---
+
+### Specification
+
+Composable business rules.
+
+```javascript
+activeCustomerSpecification
+    .and(hasCreditLimit)
+    .or(isPremiumCustomer);
+```
+
+---
+
+## Design Principles
+
+- Domain-Driven Design
+- Clean Architecture
+- Dependency Inversion
+- Rich Domain Models
+- Immutable Domain Events
+- Explicit Transaction Boundaries
+- Optimistic Concurrency
+- Event-Driven Architecture
+
+---
+
+## Example
+
+```javascript
+const payment = Payment.create(command);
+
+payment.markSuccessful({
+    gatewayTransactionId,
+    paidAt
+});
+
+await unitOfWork.execute(async () => {
+
+    await paymentRepository.save(payment);
+
+    await outbox.store(
+        payment.pullEvents()
+    );
+
+});
+```
+
+---
+
+## Framework Support
+
+Works with any Node.js framework.
+
+- Express
+- Fastify
+- NestJS
+- Hono
+- Koa
+- Custom HTTP Servers
+
+---
+
+## Storage Support
+
+Compatible with
+
+- PostgreSQL
+- MySQL
+- SQL Server
+- MongoDB
+- DynamoDB
+- EventStoreDB
+
+---
+
+## Testing
+
+The domain layer has no infrastructure dependencies.
+
+Repositories, event buses, and transactions are injected through interfaces, making domain logic straightforward to unit test.
+
+---
+
+## Project Origin
+
+This library was extracted from a modular Conference Management Platform after multiple bounded contexts began sharing the same domain abstractions.
+
+The original platform contains independent modules including:
+
+- Payments
+- Registrations
+- Conferences
+- Notifications
+
+Each module depends on this shared kernel for domain modeling and application contracts.
+
+---
+
+## License
+
+MIT
